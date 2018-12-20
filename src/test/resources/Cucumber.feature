@@ -1,6 +1,5 @@
-Feature: Cucumber Home Page
+Feature: Summit Inchcape
 
-  Scenario: Docs
-    Given I navigate to "https://cucumber.io/"
-    When I take a look at the Docs
-    Then I see a browser title containing "Cucumber"
+  Scenario: Navigate to home page
+    When I navigate to home page
+    Then I should see text Tell us what car you have

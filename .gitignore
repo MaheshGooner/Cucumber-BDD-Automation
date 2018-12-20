@@ -4,6 +4,13 @@
 build
 target
 *.iml
+*.css
+*.svg
+*.eot
+*.tff
+*.woff
+*.woff2
+*.otf
 .DS_STORE
 .gradle
 .idea

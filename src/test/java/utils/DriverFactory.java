@@ -1,32 +1,31 @@
 package utils;
 
+import cucumber.api.Scenario;
 import cucumber.api.java.After;
 import cucumber.api.java.Before;
-import org.openqa.selenium.remote.DesiredCapabilities;
-import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.support.PageFactory;
-import pages.CucumberHomePage;
-
-import java.net.MalformedURLException;
-import java.net.URL;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
 
 public class DriverFactory
 {
 
-    public static RemoteWebDriver driver;
-    DesiredCapabilities capabilities;
+    public static WebDriver driver;
 
     @Before
-    public void setUp() throws MalformedURLException
+    public void setUp()
     {
-        capabilities = DesiredCapabilities.firefox();
-        capabilities.setCapability("browserName", "firefox");
-        driver = new RemoteWebDriver(new URL("http://127.0.0.1:4444/wd/hub"), capabilities);
+        driver = new ChromeDriver();
     }
 
     @After
-    public void tearDown()
+    public void tearDown(Scenario scenario)
     {
+        if(scenario.isFailed()) {
+            byte[] screenshot = ((TakesScreenshot)driver).getScreenshotAs(OutputType.BYTES);
+            scenario.embed(screenshot,"image/png");
+        }
         driver.close();
     }
 

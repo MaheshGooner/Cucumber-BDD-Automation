@@ -1,5 +1,25 @@
-// apply the java plugin to add support for Java
+import groovy.io.FileType
+import net.masterthought.cucumber.Configuration
+import net.masterthought.cucumber.ReportBuilder
+
+import java.nio.charset.Charset
+
+
 apply plugin: 'java'
+
+buildscript {
+    ext {
+        cucumberReportVersion = '3.12.0'
+        cukesVersion = '1.2.5'
+    }
+
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "net.masterthought:cucumber-reporting:$cucumberReportVersion"
+    }
+}
 
 // in this section declare where to find the dependencies of your project
 repositories {
@@ -13,30 +33,63 @@ dependencies {
     compile "org.seleniumhq.selenium:selenium-chrome-driver:2.53.1"
     compile "org.seleniumhq.selenium:selenium-remote-driver:2.53.1"
     compile "org.seleniumhq.selenium:selenium-server:2.53.1"
-    compile "info.cukes:cucumber-java:1.2.4"
-    compile "info.cukes:cucumber-core:1.2.4"
-    compile "info.cukes:cucumber-junit:1.2.4"
+    compile "info.cukes:cucumber-java:$cukesVersion"
+    compile "info.cukes:cucumber-core:$cukesVersion"
+    compile "info.cukes:cucumber-junit:$cukesVersion"
     compile 'info.cukes:gherkin:2.12.2'
     testCompile 'junit:junit:4.12'
 }
 
-task startSeleniumHub() << {
-    ant.java(classname : 'org.openqa.grid.selenium.GridLauncher', 
-            fork:true,
-            classpath : configurations.runtime.asPath
-        ) {
-        arg(value : '-role')
-        arg(value : 'hub')
+task mergeFunctionalTests() {
+    doLast {
+
+        File reportOutputDirectory = new File("$projectDir/test-results/merged-cucumbers")
+        List<String> jsonFiles = new ArrayList<>()
+
+        def dir = new File("$projectDir/test-results/cucumber-reports")
+        dir.eachFileRecurse(FileType.FILES) { file ->
+            if (file.getPath().endsWith(".json")) {
+                jsonFiles << file.getPath()
+            }
+        }
+
+
+        String projectName = "cucumber-jvm"
+        Configuration configuration = new Configuration(reportOutputDirectory, projectName)
+        ReportBuilder reportBuilder = new ReportBuilder(jsonFiles, configuration)
+        reportBuilder.generateReports()
     }
 }
 
-task startSeleniumNode() << {
-    ant.java(classname : 'org.openqa.grid.selenium.GridLauncher', 
-            fork:true,
-            classpath : configurations.runtime.asPath) {
-        arg(value : '-role')
-        arg(value : 'node')
-        arg(value : '-hub')
-        arg(value : 'http://localhost:4444/grid/register')
+task runFunctionalTests(type: Test) {
+
+    dependsOn 'cleanTest'
+
+    doFirst {
+        new File("$projectDir/test-results/cucumber-reports").mkdirs()
+    }
+    finalizedBy mergeFunctionalTests
+
+    description = "Run Functional Tests"
+    reports.html.enabled = false
+    afterTest { descriptor, result ->
+        result = result as TestResult
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            logger.lifecycle(" Exceptions in ${descriptor.getName()} [${result.resultType.name()}]:")
+            result.exceptions.forEach({ exception ->
+                exception = exception as Throwable
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                exception.printStackTrace(new PrintStream(baos))
+                logger.lifecycle(baos.toString(Charset.defaultCharset().toString()))
+            })
+        }
+    }
+    afterSuite { descriptor, result ->
+        result = result as TestResult
+        logger.lifecycle("Test ${descriptor.getName()}: [${result.resultType.name()}] in ${result.endTime - result.startTime}")
+        logger.lifecycle("  ${result.getSuccessfulTestCount()} passed")
+        logger.lifecycle("  ${result.getFailedTestCount()} failed")
+        logger.lifecycle("  ${result.getSkippedTestCount()} skipped")
+
     }
 }
